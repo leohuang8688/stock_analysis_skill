@@ -13,9 +13,11 @@
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `STOCK_LIST` | Stock codes to analyze (comma-separated) | ✅ Yes |
-| `TAVILY_API_KEY` | Tavily Search API key (for news) | ⚠️ Optional |
+| `TAVILY_API_KEY` | Tavily Search API key (for news sentiment) | ⚠️ Optional* |
 | `BIAS_THRESHOLD` | Deviation threshold (%) | ⚠️ Optional |
 | `NEWS_MAX_AGE_DAYS` | News age limit (days) | ⚠️ Optional |
+
+*Tavily API is optional but recommended for news sentiment analysis. Without it, the system will use basic analysis only.
 
 ---
 
@@ -24,11 +26,19 @@
 - 🌏 **Multi-Market Support** - A-shares, H-shares, US stocks
 - 📊 **Real-Time Quotes** - Live market data
 - 📈 **Technical Analysis** - MA, RSI, MACD, trend analysis
-- 📰 **News Sentiment** - Real-time news and sentiment analysis
+- 📰 **News Sentiment Analysis** - Real-time news search with Tavily API
 - 🤖 **AI Decision Dashboard** - Intelligent buy/sell/hold recommendations
 - 📱 **Multi-Channel Notifications** - Uses OpenClaw's built-in messaging
 - ⏰ **Scheduled Analysis** - Automated daily analysis
 - 🎯 **Precise Price Points** - Exact entry, target, and stop-loss prices
+
+### 📰 News Sentiment Features
+
+- **Real-time News Search** - Powered by Tavily Search API
+- **Sentiment Scoring** - Positive/Negative/Neutral analysis
+- **Keyword Analysis** - Detects bullish/bearish keywords
+- **News Count** - Number of relevant news articles
+- **Integration** - Sentiment affects buy/sell recommendations
 
 ---
 
@@ -178,7 +188,8 @@ NEWS_MAX_AGE_DAYS=3  # News age limit (days)
 目标价：2035.55
 止损价：1757.98
 置信度：high
-理由：技术趋势：bullish, 涨跌幅：2.35%
+理由：技术趋势：bullish, 涨跌幅：2.35%, 舆情：positive (0.75)
+新闻：5 条相关新闻，正面情绪主导
 --------------------------------------------------
 
 🟡 观望 hk00700
@@ -188,7 +199,19 @@ NEWS_MAX_AGE_DAYS=3  # News age limit (days)
 目标价：378.54
 止损价：441.63
 置信度：medium
-理由：技术趋势：neutral, 涨跌幅：-0.85%
+理由：技术趋势：neutral, 涨跌幅：-0.85%, 舆情：neutral (0.50)
+新闻：3 条相关新闻，情绪中性
+--------------------------------------------------
+
+🔴 卖出 AAPL
+当前价格：175.30
+涨跌幅：-1.25%
+建议：SELL
+目标价：157.77
+止损价：184.07
+置信度：high
+理由：技术趋势：bearish, 涨跌幅：-1.25%, 舆情：negative (0.30)
+新闻：7 条相关新闻，负面情绪主导
 --------------------------------------------------
 
 ⚠️ 免责声明：本报告仅供参考，不构成投资建议。

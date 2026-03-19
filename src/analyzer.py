@@ -148,7 +148,7 @@ class StockAnalyzer:
     
     def get_news_sentiment(self, stock_code: str, days: int = 3) -> Dict:
         """
-        Get news and sentiment analysis.
+        Get news and sentiment analysis using Tavily Search or OpenClaw's web search.
         
         Args:
             stock_code: Stock code
@@ -157,18 +157,136 @@ class StockAnalyzer:
         Returns:
             News and sentiment data
         """
-        # This would integrate with Tavily, SerpAPI, or other news APIs
-        # For now, return placeholder
+        try:
+            # Try to use Tavily Search API
+            tavily_api_key = os.getenv('TAVILY_API_KEY')
+            
+            if tavily_api_key:
+                return self._get_tavily_sentiment(stock_code, tavily_api_key, days)
+            else:
+                # Fallback: Use OpenClaw's built-in web search if available
+                return self._get_opclaw_search_sentiment(stock_code, days)
+        except Exception as e:
+            return {
+                'news_count': 0,
+                'sentiment': 'neutral',
+                'sentiment_score': 0.5,
+                'key_topics': [],
+                'error': str(e),
+            }
+    
+    def _get_tavily_sentiment(self, stock_code: str, api_key: str, days: int) -> Dict:
+        """Get news sentiment using Tavily Search API."""
+        try:
+            # Search for recent news
+            search_query = f"{stock_code} stock news analysis {days} days"
+            
+            url = "https://api.tavily.com/search"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {api_key}'
+            }
+            data = {
+                'query': search_query,
+                'search_depth': 'advanced',
+                'max_results': 10,
+                'include_answer': True,
+                'include_raw_content': False
+            }
+            
+            response = requests.post(url, json=data, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            results = response.json()
+            
+            # Analyze sentiment from results
+            news_items = []
+            positive_count = 0
+            negative_count = 0
+            neutral_count = 0
+            
+            for result in results.get('results', []):
+                title = result.get('title', '')
+                content = result.get('content', '')
+                
+                # Simple sentiment analysis based on keywords
+                positive_words = ['buy', 'upgrade', 'beat', 'surge', 'gain', 'rise', 'positive', 'bullish', 'outperform', 'growth']
+                negative_words = ['sell', 'downgrade', 'miss', 'drop', 'loss', 'fall', 'negative', 'bearish', 'underperform', 'decline']
+                
+                text = (title + ' ' + content).lower()
+                
+                pos_score = sum(1 for word in positive_words if word in text)
+                neg_score = sum(1 for word in negative_words if word in text)
+                
+                if pos_score > neg_score:
+                    positive_count += 1
+                    sentiment = 'positive'
+                elif neg_score > pos_score:
+                    negative_count += 1
+                    sentiment = 'negative'
+                else:
+                    neutral_count += 1
+                    sentiment = 'neutral'
+                
+                news_items.append({
+                    'title': title,
+                    'url': result.get('url', ''),
+                    'sentiment': sentiment,
+                    'published_date': result.get('published_date', ''),
+                })
+            
+            # Calculate overall sentiment
+            total = positive_count + negative_count + neutral_count
+            if total == 0:
+                overall_sentiment = 'neutral'
+                sentiment_score = 0.5
+            else:
+                sentiment_score = (positive_count * 1.0 + neutral_count * 0.5 + negative_count * 0.0) / total
+                
+                if sentiment_score > 0.6:
+                    overall_sentiment = 'positive'
+                elif sentiment_score < 0.4:
+                    overall_sentiment = 'negative'
+                else:
+                    overall_sentiment = 'neutral'
+            
+            return {
+                'news_count': len(news_items),
+                'sentiment': overall_sentiment,
+                'sentiment_score': round(sentiment_score, 2),
+                'positive_count': positive_count,
+                'negative_count': negative_count,
+                'neutral_count': neutral_count,
+                'key_topics': [],  # Could extract from news
+                'news_items': news_items[:5],  # Top 5 news
+            }
+            
+        except Exception as e:
+            return {
+                'news_count': 0,
+                'sentiment': 'neutral',
+                'sentiment_score': 0.5,
+                'error': str(e),
+            }
+    
+    def _get_opclaw_search_sentiment(self, stock_code: str, days: int) -> Dict:
+        """
+        Get news sentiment using OpenClaw's built-in search capabilities.
+        This is a fallback when Tavily API is not configured.
+        """
+        # In a real OpenClaw integration, this would call OpenClaw's search tools
+        # For now, return basic placeholder
         return {
             'news_count': 0,
             'sentiment': 'neutral',
             'sentiment_score': 0.5,
             'key_topics': [],
+            'note': 'Configure TAVILY_API_KEY for news sentiment analysis',
         }
     
     def generate_decision_dashboard(self, stock_code: str, quotes: Dict, technical: Dict, news: Dict) -> Dict:
         """
-        Generate AI-powered decision dashboard.
+        Generate AI-powered decision dashboard with news sentiment integration.
         
         Args:
             stock_code: Stock code
@@ -183,6 +301,11 @@ class StockAnalyzer:
         price = quotes.get('price', 0)
         change_percent = quotes.get('change_percent', 0)
         trend = technical.get('trend', 'neutral')
+        
+        # News sentiment
+        sentiment = news.get('sentiment', 'neutral')
+        sentiment_score = news.get('sentiment_score', 0.5)
+        news_count = news.get('news_count', 0)
         
         # Scoring system
         score = 50  # Base score
@@ -199,6 +322,12 @@ class StockAnalyzer:
         elif change_percent < -3:
             score -= 10
         
+        # News sentiment score (adds up to ±20 points)
+        if sentiment == 'positive':
+            score += int(sentiment_score * 20)
+        elif sentiment == 'negative':
+            score -= int((1 - sentiment_score) * 20)
+        
         # Determine recommendation
         if score >= 70:
             recommendation = 'BUY'
@@ -211,8 +340,20 @@ class StockAnalyzer:
             action = '🟡 观望'
         
         # Calculate target and stop-loss prices
-        target_price = round(price * 1.1, 2) if recommendation == 'BUY' else round(price * 0.9, 2)
-        stop_loss = round(price * 0.95, 2) if recommendation == 'BUY' else round(price * 1.05, 2)
+        if recommendation == 'BUY':
+            target_price = round(price * 1.1, 2)
+            stop_loss = round(price * 0.95, 2)
+        elif recommendation == 'SELL':
+            target_price = round(price * 0.9, 2)
+            stop_loss = round(price * 1.05, 2)
+        else:
+            target_price = round(price * 1.05, 2)
+            stop_loss = round(price * 0.95, 2)
+        
+        # Build reasoning with news sentiment
+        reasoning_parts = [f"技术趋势：{trend}", f"涨跌幅：{change_percent:.2f}%"]
+        if news_count > 0:
+            reasoning_parts.append(f"舆情：{sentiment} ({sentiment_score:.2f})")
         
         return {
             'stock_code': stock_code,
@@ -223,7 +364,9 @@ class StockAnalyzer:
             'target_price': target_price,
             'stop_loss': stop_loss,
             'confidence': 'high' if score >= 70 or score <= 30 else 'medium',
-            'reasoning': f"技术趋势：{trend}, 涨跌幅：{change_percent:.2f}%",
+            'reasoning': ', '.join(reasoning_parts),
+            'news_sentiment': sentiment,
+            'news_count': news_count,
         }
 
 
