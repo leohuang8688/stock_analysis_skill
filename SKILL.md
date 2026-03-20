@@ -18,16 +18,31 @@
 
 ## 🔐 Required Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `STOCK_LIST` | Stock codes to analyze (comma-separated) | ✅ Yes |
-| `TAVILY_API_KEY` | Tavily Search API key (news sentiment) | ⚠️ Optional* |
-| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key (US stocks fallback) | ⚠️ Optional** |
-| `BIAS_THRESHOLD` | Deviation threshold (%) | ⚠️ Optional |
-| `NEWS_MAX_AGE_DAYS` | News age limit (days) | ⚠️ Optional |
+**Required:**
 
-*Tavily API is optional but recommended for news sentiment analysis.
-**Alpha Vantage is optional but recommended for US stocks fallback when Yahoo Finance is rate-limited.
+| Variable | Description | Required | How to Get |
+|----------|-------------|----------|------------|
+| `STOCK_LIST` | Stock codes to analyze (comma-separated) | ✅ Yes | Your stock list |
+
+**Optional but Recommended:**
+
+| Variable | Description | Required | How to Get | Free Tier |
+|----------|-------------|----------|------------|-----------|
+| `TAVILY_API_KEY` | Tavily Search API key (news sentiment) | ⚠️ Optional | https://tavily.com/ | 100 searches/day |
+| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key (US stocks fallback) | ⚠️ Optional | https://www.alphavantage.co/ | 500 requests/day |
+| `TUSHARE_TOKEN` | Tushare Pro token (A-share backup) | ⚠️ Optional | https://tushare.pro/ | Requires credits |
+
+**Optional Configuration:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `BIAS_THRESHOLD` | Deviation threshold (%) | 5.0 |
+| `NEWS_MAX_AGE_DAYS` | News age limit (days) | 3 |
+
+**Notes:**
+- Without `TAVILY_API_KEY`: News sentiment analysis will be disabled
+- Without `ALPHA_VANTAGE_API_KEY`: US stocks may fail during Yahoo Finance rate limits
+- Without `TUSHARE_TOKEN`: A-share fallback to efinance only
 
 ---
 
@@ -74,12 +89,39 @@ pip3 install -r requirements.txt
 
 ### Configuration
 
-```bash
-# Copy example .env file
-cp .env.example .env
+**Step 1: Copy environment template**
 
-# Edit .env and add your API keys
+```bash
+cp .env.example .env
+```
+
+**Step 2: Edit .env file**
+
+```bash
 nano .env
+```
+
+**Step 3: Add your API keys**
+
+```bash
+# Required: Your stock list
+STOCK_LIST=600519,hk00700,AAPL,TSLA
+
+# Recommended: Tavily API (news sentiment)
+# Get free key: https://tavily.com/
+TAVILY_API_KEY=your_tavily_key_here
+
+# Recommended: Alpha Vantage (US stocks fallback)
+# Get free key: https://www.alphavantage.co/support/#api-key
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+
+# Optional: Tushare Pro token (A-share backup)
+# Get token: https://tushare.pro/
+TUSHARE_TOKEN=your_tushare_token_here
+
+# Optional: Analysis settings
+BIAS_THRESHOLD=5.0
+NEWS_MAX_AGE_DAYS=3
 ```
 
 ### Basic Usage
