@@ -2,9 +2,18 @@
 
 **Intelligent Stock Analysis System for OpenClaw**
 
-[![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-green.svg)]()
+[![Version 2.0.1](https://img.shields.io/badge/version-2.0.1-green.svg)](https://github.com/leohuang8688/stock_analysis_skill)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
+---
+
+## 🆕 Latest Update (v2.0.1)
+
+- ✅ **Alpha Vantage Integration** - US stocks fallback data source
+- ✅ **Free Tier** - Daily close price data (500 requests/day)
+- ✅ **Auto Fallback** - Yahoo Finance → Alpha Vantage
+- ✅ **API Key Configured** - Ready to use
 
 ---
 
@@ -18,6 +27,15 @@
 - 📱 **Multi-Channel Notifications** - Uses OpenClaw's built-in messaging
 - ⏰ **Scheduled Analysis** - Automated daily analysis
 - 🎯 **Precise Price Points** - Exact entry, target, and stop-loss prices
+- 🔄 **Multi-Source Fallback** - Automatic data source switching
+
+### 📊 Data Source Hierarchy
+
+| Market | Primary | Fallback | Status |
+|--------|---------|----------|--------|
+| **A-shares** | AkShare | efinance ✅ | ✅ Real-time |
+| **HK stocks** | Yahoo Finance | - | ⚠️ Rate limit |
+| **US stocks** | Yahoo Finance | Alpha Vantage ✅ | ✅ Daily close |
 
 ---
 
@@ -40,6 +58,24 @@ cp .env.example .env
 
 # Edit .env and add your API keys
 nano .env
+```
+
+**Required API Keys:**
+
+```bash
+# Tavily API (News sentiment analysis)
+# Get from: https://tavily.com/
+# Free tier: 100 searches/day
+TAVILY_API_KEY=your_tavily_key
+
+# Alpha Vantage API (US stocks fallback)
+# Get from: https://www.alphavantage.co/
+# Free tier: 500 requests/day
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
+
+# Tushare Token (Optional: A-share backup)
+# Get from: https://tushare.pro/
+TUSHARE_TOKEN=your_tushare_token
 ```
 
 ### Basic Usage

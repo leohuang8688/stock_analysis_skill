@@ -2,9 +2,17 @@
 
 **Intelligent Stock Analysis System for OpenClaw**
 
-[![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-green.svg)]()
+[![Version 2.0.1](https://img.shields.io/badge/version-2.0.1-green.svg)](https://github.com/leohuang8688/stock_analysis_skill)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
+---
+
+## 🆕 Latest Update (v2.0.1)
+
+- ✅ **Alpha Vantage Integration** - US stocks fallback
+- ✅ **Free Tier** - Daily close price (500 requests/day)
+- ✅ **Auto Fallback** - Yahoo Finance → Alpha Vantage
 
 ---
 
@@ -13,11 +21,13 @@
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `STOCK_LIST` | Stock codes to analyze (comma-separated) | ✅ Yes |
-| `TAVILY_API_KEY` | Tavily Search API key (for news sentiment) | ⚠️ Optional* |
+| `TAVILY_API_KEY` | Tavily Search API key (news sentiment) | ⚠️ Optional* |
+| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key (US stocks fallback) | ⚠️ Optional** |
 | `BIAS_THRESHOLD` | Deviation threshold (%) | ⚠️ Optional |
 | `NEWS_MAX_AGE_DAYS` | News age limit (days) | ⚠️ Optional |
 
-*Tavily API is optional but recommended for news sentiment analysis. Without it, the system will use basic analysis only.
+*Tavily API is optional but recommended for news sentiment analysis.
+**Alpha Vantage is optional but recommended for US stocks fallback when Yahoo Finance is rate-limited.
 
 ---
 
@@ -31,6 +41,15 @@
 - 📱 **Multi-Channel Notifications** - Uses OpenClaw's built-in messaging
 - ⏰ **Scheduled Analysis** - Automated daily analysis
 - 🎯 **Precise Price Points** - Exact entry, target, and stop-loss prices
+- 🔄 **Multi-Source Fallback** - Automatic data source switching
+
+### 📊 Data Source Hierarchy
+
+| Market | Primary | Fallback | Status |
+|--------|---------|----------|--------|
+| **A-shares** | AkShare | efinance ✅ | ✅ Real-time |
+| **HK stocks** | Yahoo Finance | - | ⚠️ Rate limit |
+| **US stocks** | Yahoo Finance | Alpha Vantage ✅ | ✅ Daily close |
 
 ### 📰 News Sentiment Features
 
