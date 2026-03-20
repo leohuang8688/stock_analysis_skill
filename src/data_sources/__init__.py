@@ -5,11 +5,17 @@ Provides unified interface for fetching stock data from multiple sources.
 """
 
 from .base import DataSourceBase
-from .market_data import YahooFinanceDataSource, AkShareDataSource, TushareDataSource
+from .market_data import (
+    YahooFinanceDataSource,
+    AkShareDataSource,
+    TushareDataSource,
+    EFinanceDataSource,
+)
 
 __all__ = [
     'DataSourceBase',
     'YahooFinanceDataSource',
     'AkShareDataSource',
     'TushareDataSource',
+    'EFinanceDataSource',
 ]

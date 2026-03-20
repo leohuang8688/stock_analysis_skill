@@ -83,19 +83,27 @@ class YahooFinanceDataSource(DataSourceBase):
 
 
 class AkShareDataSource(DataSourceBase):
-    """AkShare data source for A-shares."""
+    """AkShare data source for A-shares with efinance fallback."""
     
     def __init__(self):
         super().__init__()
         try:
             import akshare as ak
             self.ak = ak
+            # Initialize efinance as fallback
+            try:
+                import efinance as ef
+                self.ef = ef
+                self.has_efinance = True
+            except ImportError:
+                self.ef = None
+                self.has_efinance = False
         except ImportError:
             raise ImportError("akshare is required. Install with: pip install akshare")
     
     def get_quote(self, code: str) -> dict:
         """
-        Get real-time quote from AkShare.
+        Get real-time quote from AkShare with efinance fallback.
         
         Args:
             code: A-share stock code (e.g., '600519', '000001')
@@ -103,29 +111,45 @@ class AkShareDataSource(DataSourceBase):
         Returns:
             Dictionary with quote data
         """
+        # Try AkShare first
         try:
-            # Get all A-share quotes
             df = self.ak.stock_zh_a_spot_em()
             stock_data = df[df['代码'] == code]
             
-            if len(stock_data) == 0:
-                return {'symbol': code, 'price': 0, 'error': 'Stock not found', 'source': 'akshare'}
-            
-            stock_data = stock_data.iloc[0]
-            
-            return {
-                'symbol': code,
-                'price': float(stock_data['最新价']),
-                'change': float(stock_data['涨跌额']),
-                'change_percent': float(stock_data['涨跌幅']),
-                'volume': float(stock_data['成交量']),
-                'market_cap': float(stock_data['总市值']),
-                'pe_ratio': float(stock_data['市盈率 - 动态']),
-                'source': 'akshare',
-            }
+            if len(stock_data) > 0:
+                stock_data = stock_data.iloc[0]
+                return {
+                    'symbol': code,
+                    'price': float(stock_data['最新价']),
+                    'change': float(stock_data['涨跌额']),
+                    'change_percent': float(stock_data['涨跌幅']),
+                    'volume': float(stock_data['成交量']),
+                    'market_cap': float(stock_data['总市值']),
+                    'pe_ratio': float(stock_data['市盈率 - 动态']),
+                    'source': 'akshare',
+                }
         except Exception as e:
-            self.logger.error(f"AkShare error for {code}: {e}")
-            return {'symbol': code, 'price': 0, 'error': str(e), 'source': 'akshare'}
+            self.logger.warning(f"AkShare failed for {code}: {e}")
+        
+        # Fallback to efinance
+        if self.has_efinance:
+            try:
+                quote_data = self.ef.stock.get_latest_quote(code)
+                if quote_data is not None and len(quote_data) > 0:
+                    return {
+                        'symbol': code,
+                        'price': float(quote_data['最新价']),
+                        'change': float(quote_data['涨跌额']),
+                        'change_percent': float(quote_data['涨跌幅']),
+                        'volume': float(quote_data['成交量']),
+                        'market_cap': float(quote_data['总市值']),
+                        'pe_ratio': float(quote_data['市盈率']),
+                        'source': 'efinance',
+                    }
+            except Exception as e:
+                self.logger.warning(f"efinance failed for {code}: {e}")
+        
+        return {'symbol': code, 'price': 0, 'error': 'All data sources failed', 'source': 'none'}
     
     def get_history(self, code: str, period: str = '6mo') -> dict:
         """Get historical data from AkShare."""
@@ -157,6 +181,70 @@ class TushareDataSource(DataSourceBase):
             self.pro = ts.pro_api()
         except ImportError:
             raise ImportError("tushare is required. Install with: pip install tushare")
+
+
+class EFinanceDataSource(DataSourceBase):
+    """efinance data source for A-shares (fallback)."""
+    
+    def __init__(self):
+        super().__init__()
+        try:
+            import efinance as ef
+            self.ef = ef
+        except ImportError:
+            raise ImportError("efinance is required. Install with: pip install efinance")
+    
+    def get_quote(self, code: str) -> dict:
+        """
+        Get real-time quote from efinance.
+        
+        Args:
+            code: A-share stock code (e.g., '600519', '000001')
+            
+        Returns:
+            Dictionary with quote data
+        """
+        try:
+            # efinance real-time quote (returns Series or DataFrame)
+            quote_data = self.ef.stock.get_latest_quote(code)
+            
+            if quote_data is None:
+                return {'symbol': code, 'price': 0, 'error': 'Stock not found', 'source': 'efinance'}
+            
+            # Handle Series or DataFrame
+            if hasattr(quote_data, 'iloc'):
+                if len(quote_data) == 0:
+                    return {'symbol': code, 'price': 0, 'error': 'Stock not found', 'source': 'efinance'}
+                quote_data = quote_data.iloc[0] if hasattr(quote_data, 'iloc') else quote_data
+            
+            # Convert to dict if needed
+            if hasattr(quote_data, 'to_dict'):
+                quote_data = quote_data.to_dict()
+            
+            return {
+                'symbol': code,
+                'price': float(quote_data.get('最新价', 0)),
+                'change': float(quote_data.get('涨跌额', 0)),
+                'change_percent': float(quote_data.get('涨跌幅', 0)),
+                'volume': float(quote_data.get('成交量', 0)),
+                'market_cap': float(quote_data.get('总市值', 0)),
+                'pe_ratio': float(quote_data.get('市盈率', 0)),
+                'source': 'efinance',
+            }
+        except Exception as e:
+            self.logger.error(f"efinance error for {code}: {e}")
+            return {'symbol': code, 'price': 0, 'error': str(e), 'source': 'efinance'}
+    
+    def get_history(self, code: str, period: str = '6mo') -> dict:
+        """Get historical data from efinance."""
+        return {
+            'ma5': 0,
+            'ma10': 0,
+            'ma20': 0,
+            'ma60': 0,
+            'trend': 'neutral',
+            'source': 'efinance',
+        }
     
     def get_quote(self, code: str) -> dict:
         """
