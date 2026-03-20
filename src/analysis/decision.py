@@ -8,14 +8,13 @@ Generates AI-powered trading decisions:
 - Clear reasoning
 """
 
-from .base import AnalysisBase
 
-
-class DecisionDashboard(AnalysisBase):
+class DecisionDashboard:
     """AI-powered decision dashboard generator."""
     
     def __init__(self):
-        super().__init__()
+        import logging
+        self.logger = logging.getLogger(__name__)
     
     def generate(self, stock_code: str, quote: dict, technical: dict, news: dict) -> dict:
         """

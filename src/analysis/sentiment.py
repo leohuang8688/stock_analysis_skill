@@ -7,6 +7,7 @@ Provides news search and sentiment analysis:
 - Sentiment scoring
 """
 
+import os
 from .base import AnalysisBase
 
 
