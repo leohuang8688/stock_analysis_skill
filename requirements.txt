@@ -3,4 +3,5 @@ yfinance>=0.2.0
 akshare>=1.0.0
 tushare>=1.2.0
 efinance>=0.3.0
+alpha-vantage>=3.0.0
 python-dotenv>=1.0.0

@@ -10,6 +10,7 @@ from .market_data import (
     AkShareDataSource,
     TushareDataSource,
     EFinanceDataSource,
+    AlphaVantageDataSource,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     'AkShareDataSource',
     'TushareDataSource',
     'EFinanceDataSource',
+    'AlphaVantageDataSource',
 ]

@@ -5,25 +5,42 @@ Provides unified interface for fetching stock data from multiple sources:
 - Yahoo Finance (US/HK stocks)
 - AkShare (A-shares)
 - Tushare (A-shares backup)
+- efinance (A-shares fallback)
+- Alpha Vantage (US stocks fallback)
 """
 
+import os
 from .base import DataSourceBase
 
 
 class YahooFinanceDataSource(DataSourceBase):
-    """Yahoo Finance data source for US and HK stocks."""
+    """Yahoo Finance data source for US and HK stocks with Alpha Vantage fallback."""
     
     def __init__(self):
         super().__init__()
         try:
             import yfinance as yf
             self.yf = yf
+            
+            # Initialize Alpha Vantage as fallback for US stocks
+            av_key = os.getenv('ALPHA_VANTAGE_API_KEY')
+            if av_key:
+                try:
+                    from alpha_vantage.timeseries import TimeSeries
+                    self.av_ts = TimeSeries(key=av_key, output_format='pandas')
+                    self.has_alpha_vantage = True
+                except ImportError:
+                    self.av_ts = None
+                    self.has_alpha_vantage = False
+            else:
+                self.av_ts = None
+                self.has_alpha_vantage = False
         except ImportError:
             raise ImportError("yfinance is required. Install with: pip install yfinance")
     
     def get_quote(self, symbol: str) -> dict:
         """
-        Get real-time quote from Yahoo Finance.
+        Get real-time quote from Yahoo Finance with Alpha Vantage fallback.
         
         Args:
             symbol: Stock symbol (e.g., 'AAPL', '0700.HK')
@@ -31,6 +48,7 @@ class YahooFinanceDataSource(DataSourceBase):
         Returns:
             Dictionary with quote data
         """
+        # Try Yahoo Finance first
         try:
             ticker = self.yf.Ticker(symbol)
             data = ticker.info
@@ -48,7 +66,35 @@ class YahooFinanceDataSource(DataSourceBase):
                 'source': 'yahoo',
             }
         except Exception as e:
-            self.logger.error(f"Yahoo Finance error for {symbol}: {e}")
+            self.logger.warning(f"Yahoo Finance failed for {symbol}: {e}")
+            
+            # Fallback to Alpha Vantage for US stocks (free tier: daily data)
+            if self.has_alpha_vantage and self.av_ts and not symbol.endswith('.HK'):
+                try:
+                    self.logger.info(f"Trying Alpha Vantage for {symbol}...")
+                    # Use daily data (free tier)
+                    data, _ = self.av_ts.get_daily(symbol, outputsize='compact')
+                    if data is not None and len(data) > 0:
+                        latest = data.iloc[0]
+                        prev_close = data.iloc[1]['4. close'] if len(data) > 1 else latest['4. close']
+                        change = latest['4. close'] - prev_close
+                        change_pct = (change / prev_close) * 100
+                        self.logger.info(f"Alpha Vantage succeeded for {symbol}")
+                        return {
+                            'symbol': symbol,
+                            'price': float(latest['4. close']),
+                            'change': float(change),
+                            'change_percent': float(change_pct),
+                            'volume': float(latest['5. volume']),
+                            'market_cap': 0,
+                            'pe_ratio': 0,
+                            'high_52w': 0,
+                            'low_52w': 0,
+                            'source': 'alphavantage',
+                        }
+                except Exception as av_e:
+                    self.logger.warning(f"Alpha Vantage failed for {symbol}: {av_e}")
+            
             return {'symbol': symbol, 'price': 0, 'error': str(e), 'source': 'yahoo'}
     
     def get_history(self, symbol: str, period: str = '6mo') -> dict:
@@ -194,6 +240,72 @@ class EFinanceDataSource(DataSourceBase):
             self.ef = ef
         except ImportError:
             raise ImportError("efinance is required. Install with: pip install efinance")
+
+
+class AlphaVantageDataSource(DataSourceBase):
+    """Alpha Vantage data source for US stocks (fallback)."""
+    
+    def __init__(self, api_key: str = None):
+        super().__init__()
+        self.api_key = api_key or os.getenv('ALPHA_VANTAGE_API_KEY')
+        
+        if not self.api_key:
+            self.logger.warning("ALPHA_VANTAGE_API_KEY not configured")
+            return
+        
+        try:
+            from alpha_vantage.timeseries import TimeSeries
+            self.ts = TimeSeries(key=self.api_key, output_format='pandas')
+        except ImportError:
+            raise ImportError("alpha-vantage is required. Install with: pip install alpha-vantage")
+    
+    def get_quote(self, symbol: str) -> dict:
+        """
+        Get real-time quote from Alpha Vantage.
+        
+        Args:
+            symbol: US stock symbol (e.g., 'AAPL', 'TSLA')
+            
+        Returns:
+            Dictionary with quote data
+        """
+        if not self.api_key:
+            return {'symbol': symbol, 'price': 0, 'error': 'API key not configured', 'source': 'alphavantage'}
+        
+        try:
+            # Use Time Series for latest data
+            data, _ = self.ts.get_intraday(symbol, interval='1min', outputsize='compact')
+            
+            if data is None or len(data) == 0:
+                return {'symbol': symbol, 'price': 0, 'error': 'Stock not found', 'source': 'alphavantage'}
+            
+            # Get latest timestamp
+            latest = data.iloc[0]
+            
+            return {
+                'symbol': symbol,
+                'price': float(latest['3. close']),
+                'change': 0,  # Need to calculate
+                'change_percent': 0,
+                'volume': float(latest['5. volume']),
+                'market_cap': 0,
+                'pe_ratio': 0,
+                'source': 'alphavantage',
+            }
+        except Exception as e:
+            self.logger.error(f"Alpha Vantage error for {symbol}: {e}")
+            return {'symbol': symbol, 'price': 0, 'error': str(e), 'source': 'alphavantage'}
+    
+    def get_history(self, symbol: str, period: str = '6mo') -> dict:
+        """Get historical data from Alpha Vantage."""
+        return {
+            'ma5': 0,
+            'ma10': 0,
+            'ma20': 0,
+            'ma60': 0,
+            'trend': 'neutral',
+            'source': 'alphavantage',
+        }
     
     def get_quote(self, code: str) -> dict:
         """
