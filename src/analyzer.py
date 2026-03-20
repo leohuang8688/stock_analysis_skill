@@ -15,7 +15,7 @@ import json
 from typing import List, Dict, Optional
 from pathlib import Path
 from datetime import datetime, timedelta
-import yahoofinance as yf
+import yfinance as yf
 import akshare as ak
 
 
@@ -45,21 +45,27 @@ class StockAnalyzer:
                 if code.startswith('hk'):
                     # Hong Kong stock
                     symbol = code.replace('hk', '') + '.HK'
-                    data = yf.Ticker(symbol).info
-                elif code.startswith('us') or code in ['SPX', 'DJI', 'IXIC']:
+                    ticker = yf.Ticker(symbol)
+                    data = ticker.info
+                    price = data.get('currentPrice', data.get('regularMarketPrice', data.get('previousClose', 0)))
+                elif code.startswith('us') or code in ['SPX', 'DJI', 'IXIC'] or len(code) <= 5 and code.isalpha():
                     # US stock
                     symbol = code.replace('us', '')
-                    data = yf.Ticker(symbol).info
+                    ticker = yf.Ticker(symbol)
+                    data = ticker.info
+                    price = data.get('currentPrice', data.get('regularMarketPrice', data.get('previousClose', 0)))
                 else:
                     # A-share (use AkShare)
                     symbol = code
-                    data = self._get_akshare_quote(symbol)
+                    price_data = self._get_akshare_quote(symbol)
+                    price = price_data.get('price', 0)
+                    data = price_data
                 
                 quotes[code] = {
                     'symbol': code,
-                    'price': data.get('currentPrice', data.get('regularMarketPrice', 0)),
-                    'change': data.get('regularMarketChange', 0),
-                    'change_percent': data.get('regularMarketChangePercent', 0),
+                    'price': price,
+                    'change': data.get('regularMarketChange', data.get('change', 0)),
+                    'change_percent': data.get('regularMarketChangePercent', data.get('change_percent', 0)),
                     'volume': data.get('volume', 0),
                     'market_cap': data.get('marketCap', 0),
                     'pe_ratio': data.get('trailingPE', 0),
@@ -67,7 +73,7 @@ class StockAnalyzer:
                     'low_52w': data.get('fiftyTwoWeekLow', 0),
                 }
             except Exception as e:
-                quotes[code] = {'error': str(e)}
+                quotes[code] = {'error': str(e), 'price': 0}
         
         return quotes
     
@@ -76,15 +82,19 @@ class StockAnalyzer:
         try:
             # AkShare real-time quote
             df = ak.stock_zh_a_spot_em()
-            stock_data = df[df['代码'] == code].iloc[0]
+            stock_data = df[df['代码'] == code]
+            if len(stock_data) == 0:
+                return {'price': 0, 'change': 0, 'change_percent': 0}
+            
+            stock_data = stock_data.iloc[0]
             return {
-                'currentPrice': stock_data['最新价'],
-                'regularMarketChange': stock_data['涨跌额'],
-                'regularMarketChangePercent': stock_data['涨跌幅'],
-                'volume': stock_data['成交量'],
+                'price': float(stock_data['最新价']),
+                'change': float(stock_data['涨跌额']),
+                'change_percent': float(stock_data['涨跌幅']),
+                'volume': float(stock_data['成交量']),
             }
         except Exception as e:
-            return {}
+            return {'price': 0, 'change': 0, 'change_percent': 0, 'error': str(e)}
     
     def get_technical_analysis(self, stock_code: str, period: str = '6mo') -> Dict:
         """
