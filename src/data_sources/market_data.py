@@ -134,16 +134,17 @@ class AkShareDataSource(DataSourceBase):
         # Fallback to efinance
         if self.has_efinance:
             try:
-                quote_data = self.ef.stock.get_latest_quote(code)
-                if quote_data is not None and len(quote_data) > 0:
+                df = self.ef.stock.get_latest_quote(code)
+                if df is not None and len(df) > 0:
+                    row = df.iloc[0]
                     return {
                         'symbol': code,
-                        'price': float(quote_data['最新价']),
-                        'change': float(quote_data['涨跌额']),
-                        'change_percent': float(quote_data['涨跌幅']),
-                        'volume': float(quote_data['成交量']),
-                        'market_cap': float(quote_data['总市值']),
-                        'pe_ratio': float(quote_data['市盈率']),
+                        'price': float(row['最新价']),
+                        'change': float(row['涨跌额']),
+                        'change_percent': float(row['涨跌幅']),
+                        'volume': float(row['成交量']),
+                        'market_cap': float(row['总市值']),
+                        'pe_ratio': float(row['动态市盈率']),
                         'source': 'efinance',
                     }
             except Exception as e:
@@ -205,30 +206,23 @@ class EFinanceDataSource(DataSourceBase):
             Dictionary with quote data
         """
         try:
-            # efinance real-time quote (returns Series or DataFrame)
-            quote_data = self.ef.stock.get_latest_quote(code)
+            # efinance returns DataFrame
+            df = self.ef.stock.get_latest_quote(code)
             
-            if quote_data is None:
+            if df is None or len(df) == 0:
                 return {'symbol': code, 'price': 0, 'error': 'Stock not found', 'source': 'efinance'}
             
-            # Handle Series or DataFrame
-            if hasattr(quote_data, 'iloc'):
-                if len(quote_data) == 0:
-                    return {'symbol': code, 'price': 0, 'error': 'Stock not found', 'source': 'efinance'}
-                quote_data = quote_data.iloc[0] if hasattr(quote_data, 'iloc') else quote_data
-            
-            # Convert to dict if needed
-            if hasattr(quote_data, 'to_dict'):
-                quote_data = quote_data.to_dict()
+            # Get first row
+            row = df.iloc[0]
             
             return {
                 'symbol': code,
-                'price': float(quote_data.get('最新价', 0)),
-                'change': float(quote_data.get('涨跌额', 0)),
-                'change_percent': float(quote_data.get('涨跌幅', 0)),
-                'volume': float(quote_data.get('成交量', 0)),
-                'market_cap': float(quote_data.get('总市值', 0)),
-                'pe_ratio': float(quote_data.get('市盈率', 0)),
+                'price': float(row['最新价']),
+                'change': float(row['涨跌额']),
+                'change_percent': float(row['涨跌幅']),
+                'volume': float(row['成交量']),
+                'market_cap': float(row['总市值']),
+                'pe_ratio': float(row['动态市盈率']),
                 'source': 'efinance',
             }
         except Exception as e:
